@@ -1,0 +1,1 @@
+export default function Home() { return <iframe title="Falcon 9 flight simulation" src="/flight.html" style={{position:'fixed',inset:0,width:'100%',height:'100%',border:0,background:'#070c12'}} allow="autoplay; fullscreen" />; }
