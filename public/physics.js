@@ -1,4 +1,5 @@
 // SI units throughout; fixed-step integration is independent of display/playback rate.
+import {pitchProgram} from './world.js';
 export const G0=9.80665, R=6371000, DT=0.05;
 export function buildFlight(){
  let t=0,h=0,x=0,vy=0,vx=0,fuel=410900,dry=138200,phase=0,landed=false,entry=false;
@@ -8,7 +9,7 @@ export function buildFlight(){
   const mass=dry+fuel,g=G0*(R/(R+h))**2,rho=1.225*Math.exp(-h/8500),v=Math.hypot(vx,vy),q=.5*rho*v*v;
   let thrust=0,angle=0,isp=300,tx=0,ty=0;
   if(t<155){
-   phase=t<60?0:1; angle=Math.min(1.12,Math.max(0,t-12)*.008);
+   phase=t<60?0:1; angle=pitchProgram(t,h);
    const throttle=t>52&&t<78?.70:.88;
    thrust=(7607000+(8227000-7607000)*(1-Math.exp(-h/8500)))*throttle;
    isp=282+29*(1-Math.exp(-h/8500));tx=thrust*Math.sin(angle);ty=thrust*Math.cos(angle);
@@ -28,7 +29,7 @@ export function buildFlight(){
     ty=Math.max(0,ty);thrust=Math.hypot(tx,ty);
     const cap=845000; if(thrust>cap){tx*=cap/thrust;ty*=cap/thrust;thrust=cap;}
    }
-   angle=Math.atan2(tx,Math.max(1,ty));isp=305;
+   angle=Math.atan2(tx,ty);isp=305;
   }
   if(fuel<=0){thrust=tx=ty=0;}
   const cd=t<155?.32:(phase===3?1.15:.8),drag=q*cd*10.75;
