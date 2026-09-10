@@ -1,6 +1,8 @@
 // Metres, with the observer's subpoint as the floating origin.
 export const EARTH_RADIUS=6371000;
-export const ROCKET_BASE=-(9+14*Math.cos(2.59));
+// Concrete foundation penetrates the terrain; its top is 16 cm above grade.
+export const PAD_TOP=.16, PAD_BOTTOM=-.34;
+export const ROCKET_BASE=PAD_TOP-(9+14*Math.cos(2.59));
 export function groundPoint(distance){
  const a=distance/EARTH_RADIUS;
  return {x:EARTH_RADIUS*Math.sin(a),y:-2*EARTH_RADIUS*Math.sin(a/2)**2,rotation:-a};

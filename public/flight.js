@@ -1,11 +1,11 @@
 import * as THREE from './vendor/three.module.js';
 import {buildFlight,sampleFlight} from './physics.js';
-import {ROCKET_BASE,groundPoint,terrainData} from './world.js';
+import {ROCKET_BASE,PAD_TOP,PAD_BOTTOM,groundPoint,terrainData} from './world.js';
 const $=id=>document.getElementById(id),flight=buildFlight();
-let renderer,scene,camera,rocket,booster,upper,flame,upperFlame,earth,sky,stars,pad,landingPad,light,smoke,strongback,arms=[],clamps=[],legs=[],fins=[];
+let renderer,scene,camera,rocket,booster,upper,flame,upperFlame,earth,sky,stars,pad,landingPad,light,smoke,strongback,rcsJets,arms=[],clamps=[],legs=[],fins=[];
 let running=false,paused=false,missionT=-10,rate=1,last=performance.now(),view='follow',orbit=.42,elevation=.18,zoom=1,dragging=false,oldX=0,oldY=0,lastEvent=-1,lastCount=-1,muted=false;
 let sound,noiseGain,windGain,engineFilter;const target=new THREE.Vector3(),camPos=new THREE.Vector3();
-const cameraOffset=new THREE.Vector3(53,23,119);let attitude=0,lastDrawTime=-10;
+const cameraOffset=new THREE.Vector3(53,23,119);
 const white=new THREE.MeshStandardMaterial({color:0xe5e8e6,roughness:.47,metalness:.2}),black=new THREE.MeshStandardMaterial({color:0x17202a,roughness:.5,metalness:.6}),metal=new THREE.MeshStandardMaterial({color:0x75808a,roughness:.42,metalness:.8});
 function mesh(g,m,parent,x=0,y=0,z=0){const o=new THREE.Mesh(g,m);o.position.set(x,y,z);parent.add(o);return o;}
 function cylinder(parent,rt,rb,height,y,mat=white){return mesh(new THREE.CylinderGeometry(rt,rb,height,48),mat,parent,0,y,0);}
@@ -26,8 +26,8 @@ function init(){
    vec2 p=terrainPosition.xz+vec2(downrange,0.);
    float coast=25000.+sin(p.x*.00003)*7000.;
    float water=smoothstep(coast-120.,coast+120.,p.y);
-   float detail=sin(p.x*.032)*sin(p.y*.041)*.015+sin(p.x*.00031)*sin(p.y*.00028)*.055;
-   diffuseColor.rgb=mix(vec3(.23,.28,.17)+detail,vec3(.045,.16,.23),water);
+
+   diffuseColor.rgb=mix(vec3(.23,.28,.17),vec3(.045,.16,.23),water);
   `);
  };
  earth=mesh(geometry,landMaterial,scene);
@@ -46,8 +46,8 @@ function init(){
  `}),scene);sky.renderOrder=-10;
  const pos=new Float32Array(2400*3);for(let i=0;i<2400;i++){const v=new THREE.Vector3(Math.random()-.5,Math.random()-.5,Math.random()-.5).normalize().multiplyScalar(4000000);pos.set(v.toArray(),i*3);}const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.BufferAttribute(pos,3));stars=new THREE.Points(sg,new THREE.PointsMaterial({color:0xc8ddff,size:1.3,sizeAttenuation:false,transparent:true,opacity:0,fog:false,depthWrite:false}));scene.add(stars);
  pad=new THREE.Group();scene.add(pad);
- const concrete=new THREE.MeshStandardMaterial({color:0x777c78,roughness:1});
- mesh(new THREE.CylinderGeometry(27,27,.35,80),concrete,pad,0,-.175,0);
+ const concrete=new THREE.MeshStandardMaterial({color:0x929792,roughness:.92,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
+ mesh(new THREE.CylinderGeometry(27,27,PAD_TOP-PAD_BOTTOM,80),concrete,pad,0,(PAD_TOP+PAD_BOTTOM)/2,0);
  // A low launch mount carries the stage. Its four hold-downs retract at release.
  const cradle=mesh(new THREE.TorusGeometry(2.2,.35,12,48),black,pad,0,ROCKET_BASE+2,0);cradle.rotation.x=Math.PI/2;
  for(let i=0;i<4;i++){const a=i*Math.PI/2;beam(pad,new THREE.Vector3(Math.cos(a)*2.2,0,Math.sin(a)*2.2),new THREE.Vector3(Math.cos(a)*2.2,ROCKET_BASE+2,Math.sin(a)*2.2),.3,black);}
@@ -58,9 +58,9 @@ function init(){
  // Arm ends meet the body at x=-1.85 with the rocket's base offset included.
  for(const y of [ROCKET_BASE+42,ROCKET_BASE+54]){const arm=new THREE.Group();arm.position.set(0,y,0);strongback.add(arm);beam(arm,new THREE.Vector3(0,0,0),new THREE.Vector3(6.15,0,0),.28);mesh(new THREE.BoxGeometry(.2,.8,1.1),black,arm,6.15,0,0);arms.push(arm);}
  landingPad=new THREE.Group();scene.add(landingPad);
- mesh(new THREE.CylinderGeometry(24,24,.3,80),concrete,landingPad,0,-.15,0);
- const ring=mesh(new THREE.RingGeometry(12,12.35,96),new THREE.MeshBasicMaterial({color:0xeee8cf,side:THREE.DoubleSide}),landingPad,0,.018,0);ring.rotation.x=-Math.PI/2;
- for(const axis of [0,1]){const line=mesh(new THREE.BoxGeometry(10,.02,.3),white,landingPad,0,.02,0);line.rotation.y=axis*Math.PI/2;}
+ mesh(new THREE.CylinderGeometry(24,24,PAD_TOP-PAD_BOTTOM,80),concrete,landingPad,0,(PAD_TOP+PAD_BOTTOM)/2,0);
+ const ring=mesh(new THREE.RingGeometry(12,12.35,96),new THREE.MeshBasicMaterial({color:0xeee8cf,side:THREE.DoubleSide}),landingPad,0,PAD_TOP+.008,0);ring.rotation.x=-Math.PI/2;
+ for(const axis of [0,1]){const line=mesh(new THREE.BoxGeometry(10,.02,.3),white,landingPad,0,PAD_TOP+.01,0);line.rotation.y=axis*Math.PI/2;}
  landingPad.visible=false;
  rocket=new THREE.Group();scene.add(rocket);rocket.position.y=ROCKET_BASE;booster=new THREE.Group();rocket.add(booster);cylinder(booster,1.85,1.85,39,21.5);cylinder(booster,1.85,1.85,4,43,black);cylinder(booster,1.86,1.86,2,3,black);
  const decal=mesh(new THREE.CylinderGeometry(1.856,1.856,15,48,1,true),new THREE.MeshStandardMaterial({map:labelTexture(),roughness:.5}),booster,0,25,0);decal.rotation.y=1.3;
@@ -68,6 +68,9 @@ function init(){
  for(let i=0;i<9;i++){let a=i*Math.PI/4,r=i===8?0:1.15;mesh(new THREE.CylinderGeometry(.25,.47,1.3,16,1,true),black,booster,Math.cos(a)*r,1.1,Math.sin(a)*r);}
  for(let i=0;i<4;i++){const a=i*Math.PI/2+Math.PI/4;const pivot=new THREE.Group();pivot.position.set(Math.cos(a)*1.65,9,Math.sin(a)*1.65);pivot.rotation.y=-a+Math.PI/2;booster.add(pivot);const leg=beam(pivot,new THREE.Vector3(0,0,0),new THREE.Vector3(0,14,0),.23,black);legs.push(pivot);const fin=new THREE.Group();fin.position.set(Math.cos(a)*1.85,40,Math.sin(a)*1.85);fin.rotation.y=-a;booster.add(fin);for(let k=0;k<5;k++){mesh(new THREE.BoxGeometry(2.5,.08,.08),metal,fin,1.1,0,(k-2)*.35);mesh(new THREE.BoxGeometry(.08,.08,1.5),metal,fin,k*.52,0,0);}fins.push(fin);}
  upper=new THREE.Group();rocket.add(upper);upper.position.y=45;cylinder(upper,1.85,1.85,11,5.5);cylinder(upper,2.6,1.85,3,12.5);cylinder(upper,2.6,2.6,6,17);const nose=mesh(new THREE.SphereGeometry(2.6,48,24,0,Math.PI*2,0,Math.PI/2),white,upper,0,20,0);nose.scale.y=1.8;cylinder(upper,.6,1.4,2,-1,black);
+ rcsJets=new THREE.Group();booster.add(rcsJets);
+ for(const [x,y,direction] of [[2,39,-1],[-2,5,1]]){const jet=mesh(new THREE.ConeGeometry(.25,3,12),new THREE.MeshBasicMaterial({color:0xc0e7ff,transparent:true,opacity:.5,depthWrite:false,blending:THREE.AdditiveBlending}),rcsJets,x+Math.sign(x)*1.5,y,0);jet.rotation.z=direction*Math.PI/2;}
+ rcsJets.visible=false;
  flame=plume(booster,.5);flame.visible=false;upperFlame=plume(upper,-2,.6);upperFlame.visible=false;
  const smokeGeometry=new THREE.BufferGeometry(),smokePos=new Float32Array(240*3);for(let i=0;i<240;i++)smokePos.set([0,-100,0],i*3);smokeGeometry.setAttribute('position',new THREE.BufferAttribute(smokePos,3));const cv=document.createElement('canvas');cv.width=cv.height=64;const ctx=cv.getContext('2d'),grad=ctx.createRadialGradient(32,32,0,32,32,32);grad.addColorStop(0,'#cbd3da88');grad.addColorStop(1,'#cbd3da00');ctx.fillStyle=grad;ctx.fillRect(0,0,64,64);smoke=new THREE.Points(smokeGeometry,new THREE.PointsMaterial({map:new THREE.CanvasTexture(cv),size:16,transparent:true,depthWrite:false,opacity:.45}));scene.add(smoke);
  const el=renderer.domElement;el.addEventListener('pointerdown',e=>{dragging=true;oldX=e.clientX;oldY=e.clientY;el.setPointerCapture(e.pointerId);});el.addEventListener('pointermove',e=>{if(dragging){orbit-=(e.clientX-oldX)*.006;elevation=Math.max(-.15,Math.min(.8,elevation+(e.clientY-oldY)*.004));oldX=e.clientX;oldY=e.clientY;}});el.addEventListener('pointerup',()=>dragging=false);el.addEventListener('pointercancel',()=>dragging=false);el.addEventListener('wheel',e=>{e.preventDefault();zoom=Math.max(.5,Math.min(3,zoom+e.deltaY*.001));},{passive:false});el.addEventListener('webglcontextlost',e=>{e.preventDefault();paused=true;$('error').hidden=false;});resize();window.addEventListener('resize',resize);
@@ -75,18 +78,17 @@ function init(){
 function resize(){const w=$('scene').clientWidth,h=$('scene').clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();}
 function initSound(){if(sound)return;const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;try{sound=new AC();const buffer=sound.createBuffer(1,sound.sampleRate*2,sound.sampleRate),data=buffer.getChannelData(0);let b=0;for(let i=0;i<data.length;i++){b=(b+.02*(Math.random()*2-1))/1.02;data[i]=b*3.5;}const source=sound.createBufferSource();source.buffer=buffer;source.loop=true;engineFilter=sound.createBiquadFilter();engineFilter.type='lowpass';engineFilter.frequency.value=200;noiseGain=sound.createGain();noiseGain.gain.value=0;source.connect(engineFilter).connect(noiseGain).connect(sound.destination);const wind=sound.createBiquadFilter();wind.type='highpass';wind.frequency.value=550;windGain=sound.createGain();windGain.gain.value=0;source.connect(wind).connect(windGain).connect(sound.destination);source.start();}catch{sound=null;}}
 function beep(freq=700){if(!sound||muted||!$('audio').checked)return;const osc=sound.createOscillator(),gain=sound.createGain();osc.frequency.value=freq;gain.gain.setValueAtTime(.065,sound.currentTime);gain.gain.exponentialRampToValueAtTime(.001,sound.currentTime+.13);osc.connect(gain).connect(sound.destination);osc.start();osc.stop(sound.currentTime+.15);}
-const events=[['Liftoff. Nine engines.','Nine Merlin engines overcome the rocket’s weight. Burning propellant makes the vehicle lighter, so the same thrust produces more acceleration.'],['Through maximum pressure.','The rocket throttles down around the densest part of its high-speed ascent. Dynamic pressure is the balance of air density and speed squared.'],['One vehicle becomes two.','First-stage engines shut down. Pneumatic pushers separate the stages; the upper stage ignites. A return burn slows the booster downrange before it coasts toward its highest point.'],['Back into the atmosphere.','The booster falls engine-first. A short entry burn reduces speed before denser air produces strong drag. Grid fins help control its attitude.'],['The final burn.','One Merlin engine adjusts thrust to reduce the descent rate. Landing legs deploy as guidance aims for a gentle touchdown on the landing pad.'],['Booster recovered.','Engine cutoff. The first stage is back on the ground after a complete ascent, separation, reentry and controlled landing.']];
+const events=[['Liftoff. Nine engines.','Nine Merlin engines overcome the rocket’s weight. Burning propellant makes the vehicle lighter, so the same thrust produces more acceleration.'],['Through maximum pressure.','The rocket throttles down around the densest part of its high-speed ascent. Dynamic pressure is the balance of air density and speed squared.'],['One vehicle becomes two.','The stages separate. Cold-gas thrusters turn the booster for its return burn. After cutoff, it retains angular momentum while attitude control gradually aligns it engine-first for reentry.'],['Back into the atmosphere.','The booster falls engine-first. A short entry burn reduces speed before denser air produces strong drag. Grid fins help control its attitude.'],['The final burn.','One Merlin engine adjusts thrust to reduce the descent rate. Landing legs deploy as guidance aims for a gentle touchdown on the landing pad.'],['Booster recovered.','Engine cutoff. The first stage is back on the ground after a complete ascent, separation, reentry and controlled landing.']];
 function updateEvent(p){if(p===lastEvent)return;lastEvent=p;$('event').hidden=!$('cards').checked;$('event-num').textContent=`0${p+1} / MISSION EVENT`;$('event-title').textContent=events[p][0];$('event-copy').textContent=events[p][1];$('status').textContent=['ASCENT NOMINAL','MAX-Q / THROTTLE','STAGE SEPARATION','ENTRY BURN / DESCENT','LANDING GUIDANCE','MISSION COMPLETE'][p];document.querySelectorAll('[data-phase]').forEach(e=>e.classList.toggle('active',Number(e.dataset.phase)<=p));beep(p===5?1000:500);}
 function draw(s,time){
 
- const separated=time>=155,elapsed=Math.max(0,time-lastDrawTime);lastDrawTime=time;
+ const separated=time>=155;
  rocket.position.set(0,ROCKET_BASE+s.h,0);
- // Ascent attitude comes from the same pitch program as the force integration.
- const desired=separated?(s.thrust>0?-s.angle:0):-s.angle;
- if(!separated)attitude=desired;else attitude+=Math.max(-elapsed*.22,Math.min(elapsed*.22,desired-attitude));
- rocket.rotation.z=attitude;booster.rotation.z=0;
+ // Rotation is integrated at the same fixed step as translational motion.
+ rocket.rotation.z=-s.attitude;booster.rotation.z=0;
+ rcsJets.visible=separated&&Math.abs(s.rcs)>12000&&Math.sin(time*12)>-.15;rcsJets.scale.x=s.rcs<0?-1:1;
  const sinceSeparation=Math.max(0,time-155);
- upper.position.set(separated?sinceSeparation*4:0,45+(separated?sinceSeparation*3+sinceSeparation**2*.8:0),0);upper.rotation.z=separated?-.45:0;upper.visible=!separated||sinceSeparation<35;upperFlame.visible=separated;
+ if(separated){const sep=sampleFlight(flight,155);upper.position.set(45*Math.sin(sep.attitude)+sinceSeparation*4,45*Math.cos(sep.attitude)+sinceSeparation*3+sinceSeparation**2*.8,0).applyAxisAngle(new THREE.Vector3(0,0,1),-rocket.rotation.z);upper.rotation.z=-sep.attitude-rocket.rotation.z;}else{upper.position.set(0,45,0);upper.rotation.z=0;}upper.visible=!separated||sinceSeparation<35;upperFlame.visible=separated;
  const release=THREE.MathUtils.smoothstep(time,-.8,-.05);
  arms.forEach(arm=>arm.rotation.y=-release*1.3);
  clamps.forEach(clamp=>clamp.position.y=3.15-release*.9);
@@ -119,7 +121,7 @@ function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000
  let s=sampleFlight(flight,Math.max(0,missionT));if(missionT<0)s={...s,thrust:0,acc:0};
  if(running&&missionT<0){$('countdown').hidden=false;const n=Math.ceil(-missionT);$('countdown').querySelector('strong').textContent=n;if(n!==lastCount){lastCount=n;beep(n<=3?900:650);}}else{$('countdown').hidden=true;if(missionT>=0)updateEvent(s.phase);}
  draw(s,missionT);telemetry(s);if(sound){const audible=running&&!paused&&!muted&&$('audio').checked;noiseGain.gain.setTargetAtTime(audible?Math.min(.55,s.thrust/7607000*.5+(missionT>-3&&missionT<0?.15:0)):0,sound.currentTime,.08);windGain.gain.setTargetAtTime(audible?Math.min(.3,s.q/100000):0,sound.currentTime,.2);} }
-function reset(){running=false;paused=false;missionT=-10;lastEvent=-1;lastCount=-1;$('setup').hidden=false;$('event').hidden=true;$('pause').disabled=true;$('pause').textContent='Pause';$('status').textContent='SYSTEMS READY';attitude=0;lastDrawTime=-10;document.querySelectorAll('[data-phase]').forEach(e=>e.classList.remove('active'));}
+function reset(){running=false;paused=false;missionT=-10;lastEvent=-1;lastCount=-1;$('setup').hidden=false;$('event').hidden=true;$('pause').disabled=true;$('pause').textContent='Pause';$('status').textContent='SYSTEMS READY';document.querySelectorAll('[data-phase]').forEach(e=>e.classList.remove('active'));}
 $('launch').onclick=()=>{rate=Number($('speed').value);muted=!$('audio').checked;$('mute').textContent=muted?'Sound off':'Sound on';initSound();sound?.resume();renderer.setPixelRatio($('quality').value==='low'?1:Math.min(devicePixelRatio,2));smoke.geometry.setDrawRange(0,$('quality').value==='low'?60:240);running=true;paused=false;missionT=-10;$('setup').hidden=true;$('pause').disabled=false;$('status').textContent='TERMINAL COUNT';};
 $('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'Resume':'Pause';};$('reset').onclick=reset;$('speed').onchange=()=>$('speed-label').textContent=$('speed').value+'× · ~'+(2/Number($('speed').value))+' min';$('mute').onclick=()=>{muted=!muted;$('audio').checked=!muted;$('mute').textContent=muted?'Sound off':'Sound on';if(!muted){initSound();sound?.resume();}};
 document.querySelectorAll('[data-camera]').forEach(b=>b.onclick=()=>{view=b.dataset.camera;zoom=1;document.querySelectorAll('[data-camera]').forEach(x=>x.classList.toggle('selected',x===b));});$('info').onclick=()=>$('notes').showModal();$('close-notes').onclick=()=>$('notes').close();document.addEventListener('visibilitychange',()=>{if(document.hidden&&running&&!paused){paused=true;$('pause').textContent='Resume';if(sound){noiseGain.gain.value=0;windGain.gain.value=0;}}});

@@ -1,8 +1,11 @@
 // SI units throughout; fixed-step integration is independent of display/playback rate.
 import {pitchProgram} from './world.js';
 export const G0=9.80665, R=6371000, DT=0.05;
+const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+export const angularDifference=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 export function buildFlight(){
  let t=0,h=0,x=0,vy=0,vx=0,fuel=410900,dry=138200,phase=0,landed=false,entry=false;
+ let attitude=0,angularVelocity=0,returnBurn=0,returnComplete=false;
  const frames=[];let maxQ=0,maxQTime=0,entryTime=0,landingTime=0;
  for(let i=0;i<16000;i++){
   if(t>=155&&phase<2){phase=2;dry=25600;}
@@ -14,7 +17,7 @@ export function buildFlight(){
    thrust=(7607000+(8227000-7607000)*(1-Math.exp(-h/8500)))*throttle;
    isp=282+29*(1-Math.exp(-h/8500));tx=thrust*Math.sin(angle);ty=thrust*Math.cos(angle);
   }else{
-   if(t>=160&&t<190){thrust=1900000;tx=-thrust*.96;ty=-thrust*.28;}
+   if(!returnComplete&&t>=160&&Math.abs(angularDifference(Math.atan2(-.96,-.28),attitude))<.10){thrust=1900000;tx=-thrust*.96;ty=-thrust*.28;returnBurn+=DT;if(returnBurn>=30)returnComplete=true;}
    if(vy<0&&h<55000&&!entry){entry=true;entryTime=t;}
    if(entry){phase=3;}
    if(entry&&t-entryTime<16){thrust=1900000;tx=-thrust*vx/Math.max(v,1);ty=-thrust*vy/Math.max(v,1);}
@@ -25,24 +28,45 @@ export function buildFlight(){
    if(phase===4||landingTime){
     phase=4;const targetV=-Math.min(220,Math.sqrt(2*7*Math.max(0,h))+.3,Math.max(.35,h*.22));
     const ay=(targetV-vy)*1.4;
-    tx=-vx*mass*.8;ty=mass*(g+ay)+.5*rho*.8*10.75*vy*Math.abs(vy);
+    tx=-vx*mass*.16;ty=mass*(g+ay)+.5*rho*.8*10.75*vy*Math.abs(vy);
     ty=Math.max(0,ty);thrust=Math.hypot(tx,ty);
     const cap=845000; if(thrust>cap){tx*=cap/thrust;ty*=cap/thrust;thrust=cap;}
    }
    angle=Math.atan2(tx,ty);isp=305;
   }
   if(fuel<=0){thrust=tx=ty=0;}
+  // Keep attitude and angular momentum through engine cutoff. Rotation requires
+  // bounded control torque (cold gas in vacuum, grid fins in air, engine gimbal).
+  let torque=0,rcs=0,gimbal=0;
+  if(t<155){angularVelocity=(angle-attitude)/DT;attitude=angle;}
+  else{
+   const retrograde=Math.atan2(-vx,-vy);
+   const target=phase===4?clamp(angle,-.3,.3)*clamp((h-100)/400,0,1):thrust>0?angle:!returnComplete?Math.atan2(-.96,-.28):retrograde;
+   const error=angularDifference(target,attitude),inertia=mass*(41**2/12+1.85**2/4);
+   const aeroAuthority=clamp(q/15000,0,1),engineAuthority=thrust>0?1:0;
+   const maxAlpha=.008+.014*aeroAuthority+.035*engineAuthority;
+   const requestedAlpha=error*(engineAuthority?.12:.035)-angularVelocity*(engineAuthority?.7:.38);
+   torque=inertia*clamp(requestedAlpha,-maxAlpha,maxAlpha);
+   const acceleration=torque/inertia;
+   angularVelocity=clamp(angularVelocity+acceleration*DT,-.13,.13);
+   attitude+=angularVelocity*DT;
+   rcs=thrust===0&&aeroAuthority<.2?torque:0;
+   if(thrust>0){gimbal=clamp(angularDifference(angle,attitude),-.105,.105);const direction=attitude+gimbal;tx=thrust*Math.sin(direction);ty=thrust*Math.cos(direction);}
+  }
   const cd=t<155?.32:(phase===3?1.15:.8),drag=q*cd*10.75;
   const ax=(tx-drag*vx/Math.max(1,v))/mass,ay=(ty-drag*vy/Math.max(1,v))/mass-g;
   if(q>maxQ&&t<155){maxQ=q;maxQTime=t;}
-  frames.push({t,h,x,vy,vx,v,mass,fuel,q,thrust,acc:Math.hypot(ax,ay)/G0,phase,angle,g});
+  frames.push({t,h,x,vy,vx,v,mass,fuel,q,thrust,acc:Math.hypot(ax,ay)/G0,phase,angle,attitude,angularVelocity,torque,rcs,gimbal,g});
   fuel=Math.max(0,fuel-thrust/(isp*G0)*DT);vx+=ax*DT;vy+=ay*DT;x+=vx*DT;h+=vy*DT;t+=DT;
   if(h<=0&&t>160){landed=Math.abs(vy)<5;frames.push({...frames.at(-1),t,h:0,v:0,vx:0,vy:0,thrust:0,acc:0,phase:5,impactSpeed:Math.abs(vy),landed});break;}
   h=Math.max(0,h);
  }
  return {frames,duration:frames.at(-1).t,maxQ,maxQTime,entryTime,landingTime,landed};
 }
-export function sampleFlight(flight,t){const index=Math.max(0,Math.min(flight.frames.length-1,Math.floor(t/DT)));const a=flight.frames[index],b=flight.frames[Math.min(index+1,flight.frames.length-1)],f=Math.max(0,Math.min(1,(t-a.t)/DT));const s={...a};for(const k of ['h','x','vy','vx','v','mass','fuel','q','thrust','acc','angle'])s[k]=a[k]+(b[k]-a[k])*f;return s;}
+export function sampleFlight(flight,t){const index=Math.max(0,Math.min(flight.frames.length-1,Math.floor(t/DT)));const a=flight.frames[index],b=flight.frames[Math.min(index+1,flight.frames.length-1)],f=Math.max(0,Math.min(1,(t-a.t)/DT));const s={...a};for(const k of ['h','x','vy','vx','v','mass','fuel','q','thrust','acc','angle','attitude','angularVelocity','torque','rcs','gimbal'])s[k]=a[k]+(b[k]-a[k])*f;return s;}
+
+
+
 
 
 
