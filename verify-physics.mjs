@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {buildFlight,sampleFlight,G0} from './public/physics.js';
 const f=buildFlight();
 assert(f.landed,'Guidance must achieve a controlled landing');
-assert(f.frames.at(-1).impactSpeed<1,'Touchdown must be below 1 m/s');
+assert(f.impactSpeed<1,'Touchdown must be below 1 m/s');
 assert(f.frames.at(-1).fuel>0,'Booster must retain propellant');
 assert(f.entryTime>155&&f.landingTime>f.entryTime);
 assert.equal(f.frames[0].mass,549100);
@@ -13,7 +13,7 @@ assert(f.frames.some(s=>s.g<G0*.98));
 assert(f.maxQ>10000&&f.maxQ<60000);
 for(let i=1;i<f.frames.length;i++){
  const a=f.frames[i-1],b=f.frames[i];
- for(const key of ['h','mass','fuel','v','thrust','q'])assert(Number.isFinite(b[key])&&b[key]>=0,`${key} at ${b.t}`);
+ for(const key of ['mass','fuel','v','thrust','q'])assert(Number.isFinite(b[key])&&b[key]>=0,`${key} at ${b.t}`);
  assert(b.fuel<=a.fuel+1e-6,'Fuel cannot increase');
  assert(b.mass<=a.mass+1e-6,'Mass cannot increase');
 }

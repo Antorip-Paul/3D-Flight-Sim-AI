@@ -1,0 +1,37 @@
+Earth material-map provenance
+
+Downloaded 2026-09-18. Equirectangular 2:1 maps. Preserve this attribution with published assets.
+
+1. earth-day-5400.jpg (5400 x 2700)
+NASA Blue Marble Next Generation, July 2004 base map. Credit: NASA Earth Observatory / Reto Stockli and Robert Simmon.
+Source page: https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/
+Original: https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/july/world.200407.3x5400x2700.jpg
+Unmodified original. Use sRGB color space.
+
+2. earth-elevation-5400.jpg (5400 x 2700)
+NASA Blue Marble topography. Credit: NASA Earth Observatory. Data scaled 0-6400 meters.
+Source page: https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/topography-bathymetry-maps/
+Original: https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/topography/gebco_08_rev_elev_5400x2700.jpg
+Unmodified original. Use as linear/data bump map; not a color texture.
+NASA reuse guidance: https://www.nasa.gov/nasa-brand-center/images-and-media/
+NASA permits factual educational/informational computer simulations and web pages with credit, without implying endorsement.
+
+3. earth-bump-roughness-clouds-4096.jpg (4096 x 2048)
+Solar System Scope / INOVE, NASA-based imagery, resized and merged by Three.js.
+Source: https://www.solarsystemscope.com/textures/
+Reuse: Creative Commons Attribution 4.0 International, https://creativecommons.org/licenses/by/4.0/
+Three.js source and attribution: https://github.com/mrdoob/three.js/blob/dev/examples/webgpu_tsl_earth.html
+Original: https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_bump_roughness_clouds_4096.jpg
+Channels confirmed in Three.js example: R = bump/elevation, G = roughness, B = cloud coverage.
+Use as linear/data map, never sRGB. Three.js remaps cloud B with smoothstep(0.2,1.0).
+
+4. earth-clouds-4096.png (4096 x 2048)
+Lossless extraction of the blue data channel of asset 3. Same CC BY 4.0 attribution applies. White denotes cloud; black clear. This PNG is a grayscale opacity map, not RGBA art; use as alphaMap on a white cloud-shell material. Original packed file retained.
+
+5. earth-specular-2048.png (2048 x 1024)
+Solar System Scope / INOVE, CC BY 4.0, NASA-based imagery.
+Source: https://www.solarsystemscope.com/textures/
+Original: https://www.solarsystemscope.com/textures/download/2k_earth_specular_map.tif
+Lossless format conversion from TIFF to PNG; original retained as earth-specular-2048.tif. White ocean / dark land. Use linear/data color space. For a roughness map, invert in shader (ocean low, land high).
+
+Suggested visible credit: Earth imagery: NASA Earth Observatory; cloud and ocean maps: Solar System Scope / INOVE (CC BY 4.0), adapted through Three.js.

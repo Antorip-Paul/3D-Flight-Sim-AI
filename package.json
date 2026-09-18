@@ -12,7 +12,7 @@
     "lint": "oxlint",
     "format": "oxfmt",
     "local": "node local-server.mjs",
-    "test": "node verify-physics.mjs && node verify-world.mjs && node verify-attitude.mjs && node verify-interface.mjs && node verify-scene.mjs"
+    "test": "node verify-physics.mjs && node verify-world.mjs && node verify-attitude.mjs && node verify-interface.mjs && node verify-scene.mjs && node verify-refactor.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",
