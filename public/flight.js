@@ -2,6 +2,7 @@ import * as THREE from './vendor/three.module.js';
 import {buildFlight,sampleFlight} from './physics.js';
 import {ROCKET_BASE,PAD_TOP,PAD_BOTTOM,groundPoint,terrainData,LAUNCH_LAT,LAUNCH_LON,FLIGHT_BEARING,LANDING_RANGE} from './world.js';
 const $=id=>document.getElementById(id),flight=buildFlight();
+document.querySelectorAll('[data-phase]').forEach(e=>e.style.left=(flight.eventTimes[Number(e.dataset.phase)]/flight.duration*100)+'%');
 let renderer,scene,camera,rocket,booster,upper,flame,upperFlame,earth,sky,cloudLayer,sun,stars,pad,landingPad,light,smoke,strongback,rcsJets,arms=[],clamps=[],legs=[],fins=[];
 let running=false,paused=false,missionT=-10,rate=1,last=performance.now(),view='follow',orbit=.42,elevation=.18,zoom=1,dragging=false,oldX=0,oldY=0,lastEvent=-1,lastCount=-1,muted=false;
 let sound,noiseGain,windGain,engineFilter;const target=new THREE.Vector3(),camPos=new THREE.Vector3();
@@ -239,13 +240,13 @@ const events=[['Liftoff. Nine engines.','Nine Merlin engines overcome the rocket
 function updateEvent(p){if(p===lastEvent)return;lastEvent=p;$('event').hidden=!$('cards').checked;$('event-num').textContent=`0${p+1} / MISSION EVENT`;$('event-title').textContent=events[p][0];$('event-copy').textContent=events[p][1];$('status').textContent=['ASCENT NOMINAL','MAX-Q / THROTTLE','STAGE SEPARATION','ENTRY BURN / DESCENT','LANDING GUIDANCE','MISSION COMPLETE'][p];document.querySelectorAll('[data-phase]').forEach(e=>e.classList.toggle('active',Number(e.dataset.phase)<=p));beep(p===5?1000:500);}
 function draw(s,time){
 
- const separated=time>=155;
+ const separated=time>=flight.separationTime;
  rocket.position.set(0,ROCKET_BASE+s.h,0);
  // Rotation is integrated at the same fixed step as translational motion.
  rocket.rotation.z=-s.attitude;booster.rotation.z=0;
  rcsJets.visible=separated&&Math.abs(s.rcs)>0;rcsJets.scale.set(s.rcs<0?-1:1,1,1);rcsJets.children.forEach(j=>{j.material.opacity=.32+.18*Math.sin(time*24)**2;});
- const sinceSeparation=Math.max(0,time-155);
- if(separated){const sep=sampleFlight(flight,155);upper.position.set(45*Math.sin(sep.attitude)+sinceSeparation*4,45*Math.cos(sep.attitude)+sinceSeparation*3+sinceSeparation**2*.8,0).applyAxisAngle(new THREE.Vector3(0,0,1),-rocket.rotation.z);upper.rotation.z=-sep.attitude-rocket.rotation.z;}else{upper.position.set(0,45,0);upper.rotation.z=0;}upper.visible=!separated||sinceSeparation<35;upperFlame.visible=separated;
+ const sinceSeparation=Math.max(0,time-flight.separationTime);
+ if(separated){const sep=sampleFlight(flight,flight.separationTime);upper.position.set(45*Math.sin(sep.attitude)+sinceSeparation*4,45*Math.cos(sep.attitude)+sinceSeparation*3+sinceSeparation**2*.8,0).applyAxisAngle(new THREE.Vector3(0,0,1),-rocket.rotation.z);upper.rotation.z=-sep.attitude-rocket.rotation.z;}else{upper.position.set(0,45,0);upper.rotation.z=0;}upper.visible=!separated||sinceSeparation<35;upperFlame.visible=separated;
  const release=THREE.MathUtils.smoothstep(time,-.8,-.05);
  arms.forEach(arm=>arm.rotation.y=-release*1.3);
  clamps.forEach(clamp=>clamp.position.y=3.15-release*.9);
@@ -259,7 +260,7 @@ function draw(s,time){
  const launchGround=groundPoint(-s.x),recoveryGround=groundPoint(LANDING_RANGE-s.x);
  pad.position.set(launchGround.x,launchGround.y,0);pad.rotation.z=launchGround.rotation;
  landingPad.position.set(recoveryGround.x,recoveryGround.y,0);landingPad.rotation.z=recoveryGround.rotation;
- pad.visible=time<155;landingPad.visible=separated;
+ pad.visible=time<flight.separationTime;landingPad.visible=separated;
  if(earth.material.userData.shader){const u=earth.material.userData.shader.uniforms;u.downrange.value=s.x;u.altitude.value=Math.max(0,camera.position.y);u.missionTime.value=Math.max(0,time);}
  
  if(cloudLayer.material.userData.shader){cloudLayer.material.userData.shader.uniforms.downrange.value=s.x;cloudLayer.material.userData.shader.uniforms.missionTime.value=Math.max(0,time);}
@@ -285,7 +286,7 @@ function draw(s,time){
  }else smoke.visible=false;
  renderer.render(scene,camera);
 }
-function telemetry(s){$('alt').textContent=(Math.max(0,s.h)/1000).toFixed(2);$('vel').textContent=Math.round(s.v*3.6).toLocaleString();$('acc').textContent=s.acc.toFixed(2);$('thrust').textContent=Math.round(s.thrust/1000).toLocaleString();$('mass').textContent=(s.mass/1000).toFixed(1)+' t';$('q').textContent=(s.q/1000).toFixed(1)+' kPa';$('stage').textContent=missionT<155?'Full stack':'Booster / stage 1';const fuel=Math.round(s.fuel/410900*100);$('fuel').textContent=fuel+'%';$('fuel-bar').style.width=fuel+'%';const secs=Math.abs(Math.floor(missionT));$('clock').textContent=`T${missionT<0?'−':'+'}${String(Math.floor(secs/60)).padStart(2,'0')}:${String(secs%60).padStart(2,'0')}`;$('progress').style.width=(Math.max(0,missionT)/flight.duration*100)+'%';
+function telemetry(s){$('alt').textContent=(Math.max(0,s.h)/1000).toFixed(2);$('vel').textContent=Math.round(s.v*3.6).toLocaleString();$('acc').textContent=s.acc.toFixed(2);$('thrust').textContent=Math.round(s.thrust/1000).toLocaleString();$('mass').textContent=(s.mass/1000).toFixed(1)+' t';$('q').textContent=(s.q/1000).toFixed(1)+' kPa';$('stage').textContent=missionT<flight.separationTime?'Full stack':'Booster / stage 1';const fuel=Math.round(s.fuel/410900*100);$('fuel').textContent=fuel+'%';$('fuel-bar').style.width=fuel+'%';const secs=Math.abs(Math.floor(missionT));$('clock').textContent=`T${missionT<0?'−':'+'}${String(Math.floor(secs/60)).padStart(2,'0')}:${String(secs%60).padStart(2,'0')}`;$('progress').style.width=(Math.max(0,missionT)/flight.duration*100)+'%';
  const ctx=$('chart').getContext('2d');ctx.clearRect(0,0,450,90);ctx.strokeStyle='#bdfb69';ctx.lineWidth=2;ctx.beginPath();const maxH=Math.max(...flight.frames.filter((_,i)=>i%50===0).map(f=>f.h));for(let i=0;i<flight.frames.length&&flight.frames[i].t<=missionT;i+=40){const f=flight.frames[i];ctx.lineTo(f.t/flight.duration*450,87-f.h/maxH*80);}ctx.stroke();
 }
 function tick(now){requestAnimationFrame(tick);const dt=Math.min((now-last)/1000,1);last=now;

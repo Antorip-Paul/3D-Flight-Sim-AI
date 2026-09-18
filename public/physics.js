@@ -21,12 +21,13 @@ export function integrateContact(state,dt){
  for(let j=0;j<steps;j++){normal=suspensionForce(h,vy,mass);vy+=(normal/mass-G0)*step;vx+=(-vx*6)*step;h+=vy*step;x+=vx*step;}
  return {...state,h,vy,vx,x,normal,compression:Math.max(0,-h)};
 }
+const SEPARATION_TIME=155;
 export function buildFlight(){
  let t=0,h=0,x=0,vy=0,vx=0,fuel=410900,dry=138200,phase=0,landed=false,entry=false;
  let attitude=0,angularVelocity=0,returnBurn=0,returnComplete=false,contactTime=null,impactSpeed=0,settledFor=0;
  const frames=[];let maxQ=0,maxQTime=0,entryTime=0,landingTime=0;
  for(let i=0;i<16000;i++){
-  if(t>=155&&phase<2){phase=2;dry=25600;}
+  if(t>=SEPARATION_TIME&&phase<2){phase=2;dry=25600;}
   const mass=dry+fuel,g=G0*(R/(R+Math.max(0,h)))**2,{rho,pressure,soundSpeed}=atmosphere(h),v=Math.hypot(vx,vy),q=.5*rho*v*v;
   if(contactTime!==null){
    const result=integrateContact({h,vy,vx,x,mass},DT);
@@ -41,7 +42,7 @@ export function buildFlight(){
    continue;
   }
   let thrust=0,angle=0,isp=300,tx=0,ty=0;
-  if(t<155){
+  if(t<SEPARATION_TIME){
    phase=t<60?0:1; angle=pitchProgram(t,h);
    const throttle=t>52&&t<78?.70:.80;
    thrust=(7607000+(8227000-7607000)*(1-pressure/101325))*throttle;
@@ -68,7 +69,7 @@ export function buildFlight(){
   // Keep attitude and angular momentum through engine cutoff. Rotation requires
   // bounded control torque (cold gas in vacuum, grid fins in air, engine gimbal).
   let torque=0,rcs=0,gimbal=0;
-  if(t<155){angularVelocity=(angle-attitude)/DT;attitude=angle;}
+  if(t<SEPARATION_TIME){angularVelocity=(angle-attitude)/DT;attitude=angle;}
   else{
    const retrograde=Math.atan2(-vx,-vy);
    const target=phase===4?clamp(angle,-.5,.5)*clamp((h-20)/80,0,1):thrust>0?angle:!returnComplete?Math.atan2(-.96,-.28):retrograde;
@@ -90,17 +91,20 @@ export function buildFlight(){
    if(thrust>0){gimbal=clamp(angularDifference(angle,attitude),-.105,.105);const direction=attitude+gimbal;tx=thrust*Math.sin(direction);ty=thrust*Math.cos(direction);}
   }
   const mach=v/soundSpeed,transonic=.12*Math.exp(-(((mach-1)/.3)**2));
-  const cd=(t<155?.32:(phase===3?1.15:.8))+transonic,drag=q*cd*10.75;
+  const cd=(t<SEPARATION_TIME?.32:(phase===3?1.15:.8))+transonic,drag=q*cd*10.75;
   const ax=(tx-drag*vx/Math.max(1,v))/mass,ay=(ty-drag*vy/Math.max(1,v))/mass-g;
-  if(q>maxQ&&t<155){maxQ=q;maxQTime=t;}
+  if(q>maxQ&&t<SEPARATION_TIME){maxQ=q;maxQTime=t;}
   frames.push({t,h,x,vy,vx,v,mass,fuel,q,thrust,acc:Math.hypot(ax,ay)/G0,phase,angle,attitude,angularVelocity,torque,rcs,gimbal,g,rho,pressure,mach,compression:0,normal:0,contact:false});
   fuel=Math.max(0,fuel-thrust/(isp*G0)*DT);vx+=ax*DT;vy+=ay*DT;x+=vx*DT;h+=vy*DT;t+=DT;
   if(h<=0&&t>160){contactTime=t;impactSpeed=Math.hypot(vy,vx);}
   if(contactTime===null)h=Math.max(0,h);
  }
- return {frames,duration:frames.at(-1).t,maxQ,maxQTime,entryTime,landingTime,landed,contactTime,impactSpeed};
+ const separation=frames.find(f=>f.phase===2),separationTime=separation.t;
+ const eventTimes=[0,maxQTime,separationTime,entryTime,landingTime,frames.at(-1).t];
+ for(const frame of frames)if(frame.t<separationTime)frame.phase=frame.t>=maxQTime?1:0;
+ return {eventTimes,separationTime,separationAltitude:separation.h,frames,duration:frames.at(-1).t,maxQ,maxQTime,entryTime,landingTime,landed,contactTime,impactSpeed};
 }
-export function sampleFlight(flight,t){const index=Math.max(0,Math.min(flight.frames.length-1,Math.floor(t/DT)));const a=flight.frames[index],b=flight.frames[Math.min(index+1,flight.frames.length-1)],f=Math.max(0,Math.min(1,(t-a.t)/DT));const s={...a};for(const k of ['h','x','vy','vx','v','mass','fuel','q','thrust','acc','angle','attitude','angularVelocity','torque','gimbal','compression','normal','pressure','rho'])s[k]=a[k]+(b[k]-a[k])*f;return s;}
+export function sampleFlight(flight,t){const index=Math.max(0,Math.min(flight.frames.length-1,Math.floor(t/DT)));const a=flight.frames[index],b=flight.frames[Math.min(index+1,flight.frames.length-1)],f=Math.max(0,Math.min(1,(t-a.t)/DT));const s={...a};for(const k of ['h','x','vy','vx','v','mass','fuel','q','thrust','acc','angle','attitude','angularVelocity','torque','gimbal','compression','normal','pressure','rho'])s[k]=a[k]+(b[k]-a[k])*f;s.phase=flight.eventTimes.reduce((phase,time,i)=>t>=time?i:phase,0);return s;}
 
 
 

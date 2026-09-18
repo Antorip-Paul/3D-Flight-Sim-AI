@@ -23,3 +23,8 @@ for(const rate of [.5,1,2,4]){
  const s=sampleFlight(f,155.025);assert(Number.isFinite(s.h));
 }
 console.log(`PASS: ${f.frames.length} physics samples; ${f.duration.toFixed(1)} s mission; ${f.frames.at(-1).impactSpeed.toFixed(2)} m/s touchdown; ${(f.frames.at(-1).fuel/1000).toFixed(2)} t reserve; all playback rates preserve pacing.`);
+
+for(let phase=1;phase<f.eventTimes.length;phase++){const t=f.eventTimes[phase];assert.equal(sampleFlight(f,t-1e-7).phase,phase-1);assert.equal(sampleFlight(f,t).phase,phase);}
+assert.equal(f.separationTime,f.frames.find(s=>s.phase===2).t);
+assert.equal(f.separationAltitude,sampleFlight(f,f.separationTime).h);
+console.log('PASS: every event changes exactly at its timeline marker, never before.');
