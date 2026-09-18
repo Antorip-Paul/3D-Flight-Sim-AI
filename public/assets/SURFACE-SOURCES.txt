@@ -1,0 +1,17 @@
+All Poly Haven sets: CC0 (https://polyhaven.com/license).
+Sources: https://polyhaven.com/a/coast_sand_01 ; https://polyhaven.com/a/asphalt_02 ; https://polyhaven.com/a/concrete_floor_02
+Each includes 2048x2048 diffuse, roughness, OpenGL normal maps. Concrete roughness JPG was converted from official PNG because JPG CDN returned errors; original PNG retained.
+NASA Earth source: https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/july/world.200407.3x21600x10800.jpg
+Source page: https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/
+Credit: NASA Earth Observatory. NASA imagery generally public domain; NASA requests this credit. https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/
+Earth 8k is a downsample of actual 21600x10800 source, never upscaled.
+Cape image: NASA GIBS MODIS Terra Corrected Reflectance True Color 2024-02-24. Exact URL/extent in cape_metadata.json. Native 250m. Cape coastline clear; scattered clouds offshore at northeast edge.
+Greener grass replacement: ambientCG Grass001 https://ambientcg.com/view?id=Grass001
+License: CC0 https://docs.ambientcg.com/license/
+Downloaded https://ambientcg.com/get?file=Grass001_2K-JPG.zip
+Source labels creation method Procedural; this is an externally published authored PBR material, not a scan or AI generation.
+Physical tile dimension ca 1.4m x 1.4m. Color, Roughness, NormalGL maps supplied as 2K JPG.
+
+Bundled grass maps use ambientCG Grass001, replacing the inspected but unused sparse_grass candidate. Sand, asphalt and concrete use Poly Haven.
+
+Wider Florida/Atlantic map: NASA GIBS MODIS Terra true color, 2024-02-24, 4096x4096 across west=-90.5 south=18.5 east=-70.5 north=38.5. Exact request and sampling are in florida-atlantic-metadata.json. Near-black missing-data swaths are masked to the NASA globe in the shader.

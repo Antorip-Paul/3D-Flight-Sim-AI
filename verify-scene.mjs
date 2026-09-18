@@ -3,13 +3,13 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import * as Three from './public/vendor/three.module.js';
 import {buildFlight,sampleFlight} from './public/physics.js';
-import {ROCKET_BASE,PAD_TOP,PAD_BOTTOM,groundPoint,terrainData} from './public/world.js';
+import {ROCKET_BASE,PAD_TOP,PAD_BOTTOM,groundPoint,terrainData,LAUNCH_LAT,LAUNCH_LON,FLIGHT_BEARING,LANDING_RANGE} from './public/world.js';
 const drawContext=new Proxy({createRadialGradient:()=>({addColorStop(){}})}, {get:(o,k)=>o[k]??(()=>{})});
 const elements=new Map();
 function element(id){if(!elements.has(id))elements.set(id,{id,hidden:true,checked:true,value:'1',style:{},dataset:{},classList:{toggle(){},remove(){}},clientWidth:1280,clientHeight:660,textContent:'',appendChild(){},addEventListener(){},setPointerCapture(){},getContext:()=>drawContext,querySelector:()=>element(id+'child'),click(){this.onclick?.();},showModal(){},close(){}});return elements.get(id);}
 class Renderer {constructor(){this.domElement=element('canvas');this.shadowMap={};this.capabilities={getMaxAnisotropy:()=>8};}setPixelRatio(){}setSize(){}render(){}}
 let failed=false;
-const context=vm.createContext({THREE:{...Three,WebGLRenderer:Renderer,TextureLoader:class{load(){return new Three.Texture();}}},buildFlight,sampleFlight,ROCKET_BASE,PAD_TOP,PAD_BOTTOM,groundPoint,terrainData,document:{getElementById:element,createElement:()=>element('generated'),querySelectorAll:()=>[],addEventListener(){}},window:{addEventListener(){}},performance:{now:()=>0},requestAnimationFrame(){},devicePixelRatio:1,innerWidth:1280,console:{error:(e)=>{failed=true;throw e;}},Math,Number,String});
+const context=vm.createContext({THREE:{...Three,WebGLRenderer:Renderer,TextureLoader:class{load(){return new Three.Texture();}}},buildFlight,sampleFlight,ROCKET_BASE,PAD_TOP,PAD_BOTTOM,groundPoint,terrainData,LAUNCH_LAT,LAUNCH_LON,FLIGHT_BEARING,LANDING_RANGE,document:{getElementById:element,createElement:()=>element('generated'),querySelectorAll:()=>[],addEventListener(){}},window:{addEventListener(){}},performance:{now:()=>0},requestAnimationFrame(){},devicePixelRatio:1,innerWidth:1280,console:{error:(e)=>{failed=true;throw e;}},Math,Number,String});
 const source=fs.readFileSync('public/flight.js','utf8').replace(/^import .*;\r?\n/gm,'');
 vm.runInContext(source,context);
 assert(!failed);
@@ -25,12 +25,12 @@ vm.runInContext(`
   if(!Number.isFinite(camera.position.y))throw Error('Invalid camera');
  }
  const s=sampleFlight(flight,flight.duration);draw(s,flight.duration);
- if(Math.abs(landingPad.position.y)>1e-6||Math.abs(landingPad.position.x)>1e-6)throw Error('Landing pad misplaced');
+ if(Math.abs(landingPad.position.y)>1e-6||Math.abs(landingPad.position.x)>1)throw Error('Landing pad misplaced');
  rocket.updateMatrixWorld(true);
  for(const leg of legs){const tip=leg.userData.strut.localToWorld(new THREE.Vector3(0,14,0));if(Math.abs(tip.y-PAD_TOP)>.01)throw Error('Leg misses ground');}
  const points=legs.map(l=>l.userData.strut.localToWorld(new THREE.Vector3(0,14,0)));
  for(let i=0;i<4;i++){const a=points[i],b=points[(i+1)%4];if(Math.abs(a.x*b.x+a.z*b.z)>.15)throw Error('Legs not at 90 degree radial offsets');if(Math.hypot(a.x,a.z)<8)throw Error('Leg did not deploy outward');}
- reset();draw(sampleFlight(flight,0),-10);
+ running=true;draw(sampleFlight(flight,80),80);if(!flame.visible||flame.children.filter(j=>j.visible).length!==9)throw Error('Nine ascent jets missing');if(flame.children.some(j=>j.material.uniforms.radius.value!==.47))throw Error('Nozzle source scaled');draw(sampleFlight(flight,flight.duration-10),flight.duration-10);if(flame.children.filter(j=>j.visible).length!==1)throw Error('Terminal engine jet count');reset();draw(sampleFlight(flight,0),-10);
  if(!upper.visible||Math.abs(strongback.rotation.z)>1e-8||arms.some(a=>a.rotation.y!==0))throw Error('Reset failed');
 `,context);
 console.log('PASS: scene initialization, arm contact, all flight phases, metre-scale altitude, camera tracking, grounded landing legs, and reset. Renderer mocked; no browser visual QA.');

@@ -1,5 +1,5 @@
 // SI units throughout; fixed-step integration is independent of display/playback rate.
-import {pitchProgram} from './world.js';
+import {pitchProgram,LANDING_RANGE} from './world.js';
 export const G0=9.80665, R=6371000, DT=0.05;
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 export const angularDifference=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
@@ -31,7 +31,7 @@ export function buildFlight(){
   if(contactTime!==null){
    const result=integrateContact({h,vy,vx,x,mass},DT);
    const normal=suspensionForce(h,vy,mass),compression=Math.max(0,-h);
-   const groundTorque=-attitude*600000-angularVelocity*900000;
+   const groundTorque=-angularDifference(attitude,0)*600000-angularVelocity*900000;
    angularVelocity+=groundTorque/(mass*141)*DT;attitude+=angularVelocity*DT;
    const acc=Math.abs(normal/mass-g)/G0;
    frames.push({t,h,x,vy,vx,v,mass,fuel,q,rho,pressure,thrust:0,acc,phase:4,angle:attitude,attitude,angularVelocity,torque:groundTorque,rcs:0,gimbal:0,g,compression,normal,contact:true,impactSpeed});
@@ -43,11 +43,11 @@ export function buildFlight(){
   let thrust=0,angle=0,isp=300,tx=0,ty=0;
   if(t<155){
    phase=t<60?0:1; angle=pitchProgram(t,h);
-   const throttle=t>52&&t<78?.70:.88;
+   const throttle=t>52&&t<78?.70:.80;
    thrust=(7607000+(8227000-7607000)*(1-pressure/101325))*throttle;
    isp=282+29*(1-pressure/101325);tx=thrust*Math.sin(angle);ty=thrust*Math.cos(angle);
   }else{
-   if(!returnComplete&&t>=160&&Math.abs(angularDifference(Math.atan2(-.96,-.28),attitude))<.10){thrust=1900000;tx=-thrust*.96;ty=-thrust*.28;returnBurn+=DT;if(returnBurn>=30)returnComplete=true;}
+   if(!returnComplete&&t>=160&&Math.abs(angularDifference(Math.atan2(-.96,-.28),attitude))<.10){thrust=1900000;tx=-thrust*.96;ty=-thrust*.28;returnBurn+=DT;if(vx < (LANDING_RANGE-x)/Math.max(60,(vy+Math.sqrt(vy*vy+2*g*h))/g)*1.08)returnComplete=true;}
    if(vy<0&&h<55000&&!entry){entry=true;entryTime=t;}
    if(entry){phase=3;}
    if(entry&&t-entryTime<16){thrust=1900000;tx=-thrust*vx/Math.max(v,1);ty=-thrust*vy/Math.max(v,1);}
@@ -58,9 +58,9 @@ export function buildFlight(){
    if(phase===4||landingTime){
     phase=4;const targetV=-Math.min(220,Math.sqrt(2*7*Math.max(0,h))+.3,Math.max(.35,h*.22));
     const ay=(targetV-vy)*1.4;
-    tx=-vx*mass*.16;ty=mass*(g+ay)+.5*rho*.8*10.75*vy*Math.abs(vy);
+    tx=mass*((LANDING_RANGE-x)*.035-vx*.4);ty=mass*(g+ay)+.5*rho*.8*10.75*vy*Math.abs(vy);
     ty=Math.max(0,ty);thrust=Math.hypot(tx,ty);
-    const cap=845000; if(thrust>cap){tx*=cap/thrust;ty*=cap/thrust;thrust=cap;}
+    const cap=h>1500?2535000:845000; if(thrust>cap){tx*=cap/thrust;ty*=cap/thrust;thrust=cap;}
    }
    angle=Math.atan2(tx,ty);isp=305;
   }
@@ -71,7 +71,7 @@ export function buildFlight(){
   if(t<155){angularVelocity=(angle-attitude)/DT;attitude=angle;}
   else{
    const retrograde=Math.atan2(-vx,-vy);
-   const target=phase===4?clamp(angle,-.3,.3)*clamp((h-100)/400,0,1):thrust>0?angle:!returnComplete?Math.atan2(-.96,-.28):retrograde;
+   const target=phase===4?clamp(angle,-.5,.5)*clamp((h-20)/80,0,1):thrust>0?angle:!returnComplete?Math.atan2(-.96,-.28):retrograde;
    const error=angularDifference(target,attitude),inertia=mass*(41**2/12+1.85**2/4);
    const aeroAuthority=clamp(q/15000,0,1),engineAuthority=thrust>0?1:0;
    const rcsLimit=80000,aeroLimit=180000*aeroAuthority,engineLimit=Math.min(350000,thrust*.35);

@@ -1,0 +1,18 @@
+{
+  "width": 4096,
+  "date": "2024-02-24",
+  "height": 4096,
+  "extent_order": "west,south,east,north",
+  "native_resolution": "250m",
+  "output_resolution": "543m latitude, approximately 477m longitude at center latitude28.5",
+  "layer": "MODIS_Terra_CorrectedReflectance_TrueColor",
+  "source": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor&STYLES=&FORMAT=image/jpeg&SRS=EPSG:4326&BBOX=-90.5,18.5,-70.5,38.5&WIDTH=4096&HEIGHT=4096&TIME=2024-02-24",
+  "extent": [
+    -90.5,
+    18.5,
+    -70.5,
+    38.5
+  ],
+  "projection": "EPSG:4326",
+  "inspection": "Florida and Cape clear. Black no-data swath across north and east edges. Cloud front over southern Florida/Bahamas, scattered clouds offshore. Must mask near-black nodata to base globe or use another satellite to fill gaps."
+}
