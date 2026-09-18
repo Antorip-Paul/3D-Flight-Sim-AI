@@ -100,11 +100,15 @@ export function buildFlight(){
   if(contactTime===null)h=Math.max(0,h);
  }
  const separation=frames.find(f=>f.phase===2),separationTime=separation.t;
+ const apogee=frames.reduce((a,b)=>b.h>a.h?b:a),descentPeak=separation.h*.9;
  const eventTimes=[0,maxQTime,separationTime,entryTime,landingTime,frames.at(-1).t];
  for(const frame of frames)if(frame.t<separationTime)frame.phase=frame.t>=maxQTime?1:0;
- return {eventTimes,separationTime,separationAltitude:separation.h,frames,duration:frames.at(-1).t,maxQ,maxQTime,entryTime,landingTime,landed,contactTime,impactSpeed};
+ return {apogeeTime:apogee.t,apogeeAltitude:apogee.h,descentPeak,eventTimes,separationTime,separationAltitude:separation.h,frames,duration:frames.at(-1).t,maxQ,maxQTime,entryTime,landingTime,landed,contactTime,impactSpeed};
 }
-export function sampleFlight(flight,t){const index=Math.max(0,Math.min(flight.frames.length-1,Math.floor(t/DT)));const a=flight.frames[index],b=flight.frames[Math.min(index+1,flight.frames.length-1)],f=Math.max(0,Math.min(1,(t-a.t)/DT));const s={...a};for(const k of ['h','x','vy','vx','v','mass','fuel','q','thrust','acc','angle','attitude','angularVelocity','torque','gimbal','compression','normal','pressure','rho'])s[k]=a[k]+(b[k]-a[k])*f;s.phase=flight.eventTimes.reduce((phase,time,i)=>t>=time?i:phase,0);return s;}
+export function sampleFlight(flight,t){const index=Math.max(0,Math.min(flight.frames.length-1,Math.floor(t/DT)));const a=flight.frames[index],b=flight.frames[Math.min(index+1,flight.frames.length-1)],f=Math.max(0,Math.min(1,(t-a.t)/DT));const s={...a};for(const k of ['h','x','vy','vx','v','mass','fuel','q','thrust','acc','angle','attitude','angularVelocity','torque','gimbal','compression','normal','pressure','rho'])s[k]=a[k]+(b[k]-a[k])*f;s.phase=flight.eventTimes.reduce((phase,time,i)=>t>=time?i:phase,0);// Requested presentation profile: immediate descent; retain integrated dynamics for safe recovery.
+s.physicalAltitude=s.h;
+if(t>=flight.separationTime&&s.h>0){const u=Math.min(1,(t-flight.separationTime)/(flight.apogeeTime-flight.separationTime)),k=flight.descentPeak*flight.apogeeAltitude/(flight.apogeeAltitude-flight.descentPeak);s.h=t<flight.apogeeTime?flight.separationAltitude+(flight.descentPeak-flight.separationAltitude)*u*u*(3-2*u):s.h/(1+s.h/k);}
+return s;}
 
 
 

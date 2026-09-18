@@ -28,3 +28,5 @@ for(let phase=1;phase<f.eventTimes.length;phase++){const t=f.eventTimes[phase];a
 assert.equal(f.separationTime,f.frames.find(s=>s.phase===2).t);
 assert.equal(f.separationAltitude,sampleFlight(f,f.separationTime).h);
 console.log('PASS: every event changes exactly at its timeline marker, never before.');
+
+let previousAltitude=f.separationAltitude;for(let t=f.separationTime;t<f.contactTime;t+=.05){const h=sampleFlight(f,t).h;assert(h<=previousAltitude+1e-6,'Booster must descend immediately and never climb after separation');previousAltitude=h;}
