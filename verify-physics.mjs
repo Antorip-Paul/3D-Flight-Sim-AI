@@ -26,7 +26,8 @@ console.log(`PASS: ${f.frames.length} physics samples; ${f.duration.toFixed(1)} 
 
 for(let phase=1;phase<f.eventTimes.length;phase++){const t=f.eventTimes[phase];assert.equal(sampleFlight(f,t-1e-7).phase,phase-1);assert.equal(sampleFlight(f,t).phase,phase);}
 assert.equal(f.separationTime,f.frames.find(s=>s.phase===2).t);
-assert.equal(f.separationAltitude,sampleFlight(f,f.separationTime).h);
+assert.equal(f.separationAltitude,sampleFlight(f,f.separationTime).physicalAltitude);
 console.log('PASS: every event changes exactly at its timeline marker, never before.');
 
-let previousAltitude=f.separationAltitude;for(let t=f.separationTime;t<f.contactTime;t+=.05){const h=sampleFlight(f,t).h;assert(h<=previousAltitude+1e-6,'Booster must descend immediately and never climb after separation');previousAltitude=h;}
+assert.equal(sampleFlight(f,f.separationTime).h,100000);
+let previousAltitude=f.displaySeparationAltitude;for(let t=f.separationTime;t<f.contactTime;t+=.05){const h=sampleFlight(f,t).h;assert(h<=previousAltitude+1e-6,'Booster must descend immediately and never climb after separation');previousAltitude=h;}
